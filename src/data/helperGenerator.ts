@@ -22,8 +22,9 @@ export const _listDocs = query({
 export const _countDocs = query({
   args: { table: v.string() },
   handler: async (ctx, { table }) => {
-    const docs = await (ctx.db as any).query(table).collect();
-    return { table, count: docs.length };
+    // Only count up to 10,000 documents to avoid memory exhaustion
+    const docs = await (ctx.db as any).query(table).take(10000);
+    return { table, count: docs.length, hasMore: docs.length === 10000 };
   },
 });
 
@@ -39,7 +40,8 @@ export const _tableCounts = query({
   handler: async (ctx, { tables }) => {
     const counts: Record<string, number> = {};
     for (const table of tables) {
-      const docs = await (ctx.db as any).query(table).collect();
+      // Only count up to 10,000 documents to avoid memory exhaustion
+      const docs = await (ctx.db as any).query(table).take(10000);
       counts[table] = docs.length;
     }
     return counts;
@@ -102,7 +104,7 @@ async function writeHelper(uri: vscode.Uri): Promise<void> {
  */
 export async function removeHelperFile(): Promise<void> {
   const convexDir = await findConvexDirShared();
-  if (!convexDir) {return;}
+  if (!convexDir) { return; }
 
   const helperUri = vscode.Uri.joinPath(convexDir, HELPER_FILE_NAME);
   try {
