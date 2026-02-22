@@ -1,0 +1,1 @@
+export { analyzeIndexCoverage } from "./queryAnalyzer";

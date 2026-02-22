@@ -3,33 +3,170 @@
   "displayName": "ExConvex",
   "description": "Visualize and explore your Convex dev database in VS Code with schema graphs, live query watch, index insights, and schema drift diffs.",
   "version": "0.0.1",
+  "publisher": "exconvex",
   "engines": {
     "vscode": "^1.74.0"
   },
   "categories": [
+    "Visualization",
     "Other"
   ],
+  "icon": "resources/icon.png",
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:exconvex.helloWorld"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "exconvex.helloWorld",
-        "title": "Hello World",
-        "category": "ExConvex"
+        "command": "exconvex.connect",
+        "title": "Connect Dev Deployment",
+        "category": "ExConvex",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "exconvex.openExplorer",
+        "title": "Open DB Explorer",
+        "category": "ExConvex",
+        "icon": "$(database)"
+      },
+      {
+        "command": "exconvex.refreshSchema",
+        "title": "Refresh Schema Snapshot",
+        "category": "ExConvex",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "exconvex.openSchemaGraph",
+        "title": "Open Schema Graph",
+        "category": "ExConvex",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "exconvex.inspectIndexes",
+        "title": "Inspect Index Coverage",
+        "category": "ExConvex",
+        "icon": "$(search)"
+      },
+      {
+        "command": "exconvex.watchQuery",
+        "title": "Watch Query Function",
+        "category": "ExConvex",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "exconvex.compareSnapshots",
+        "title": "Compare Schema Snapshots",
+        "category": "ExConvex",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "exconvex.exportView",
+        "title": "Export Current View",
+        "category": "ExConvex",
+        "icon": "$(export)"
+      },
+      {
+        "command": "exconvex.disconnectDeployment",
+        "title": "Disconnect Deployment",
+        "category": "ExConvex",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "exconvex.browseTable",
+        "title": "Browse Table Data",
+        "category": "ExConvex",
+        "icon": "$(table)"
+      },
+      {
+        "command": "exconvex.setupDataBrowser",
+        "title": "Setup Data Browser",
+        "category": "ExConvex",
+        "icon": "$(gear)"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "exconvex-sidebar",
+          "title": "Convex Visualizer",
+          "icon": "resources/sidebar-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "exconvex-sidebar": [
+        {
+          "id": "exconvex.deploymentsView",
+          "name": "Deployments",
+          "icon": "$(server)",
+          "contextualTitle": "Convex Deployments"
+        },
+        {
+          "id": "exconvex.tablesView",
+          "name": "Tables",
+          "icon": "$(table)",
+          "contextualTitle": "Convex Tables"
+        },
+        {
+          "id": "exconvex.indexesView",
+          "name": "Indexes",
+          "icon": "$(list-tree)",
+          "contextualTitle": "Convex Indexes",
+          "visibility": "hidden"
+        },
+        {
+          "id": "exconvex.driftView",
+          "name": "Drift Timeline",
+          "icon": "$(git-compare)",
+          "contextualTitle": "Schema Drift",
+          "visibility": "hidden"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "exconvex.connect",
+          "when": "view == exconvex.deploymentsView",
+          "group": "navigation"
+        },
+        {
+          "command": "exconvex.refreshSchema",
+          "when": "view == exconvex.tablesView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "ExConvex",
+      "properties": {
+        "exconvex.sampleLimit": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of documents to sample per table for schema inference."
+        },
+        "exconvex.queryWatchLimit": {
+          "type": "number",
+          "default": 50,
+          "description": "Maximum number of results to display in query watch panel."
+        },
+        "exconvex.readOnly": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enforce read-only mode (default). Disable to allow write operations."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "compile:webview": "node esbuild.webview.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production && node esbuild.webview.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
@@ -41,6 +178,8 @@
     "@types/vscode": "^1.109.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
     "typescript-eslint": "^8.54.0",
     "eslint": "^9.39.2",
     "esbuild": "^0.27.2",
@@ -48,5 +187,12 @@
     "typescript": "^5.9.3",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.0.0",
+    "elkjs": "^0.9.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ts-morph": "^24.0.0"
   }
 }
