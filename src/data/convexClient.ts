@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { execFile } from "child_process";
 import type { ConnectionManager } from "../connection/connectionManager";
 import { ensureHelperFile } from "./helperGenerator";
+import { findConvexProjectDir, helperFileExists } from "../convexProject";
 
 export type DataClientError =
   | { kind: "no_deployment" }
@@ -24,7 +25,7 @@ export class ConvexDataClient {
       return { kind: "no_deployment" };
     }
 
-    const convexDir = await this._findConvexProjectDir();
+    const convexDir = await findConvexProjectDir();
     if (!convexDir) {
       return { kind: "no_convex_project" };
     }
@@ -36,8 +37,8 @@ export class ConvexDataClient {
       const msg = err instanceof Error ? err.message : String(err);
 
       if (msg.includes("Could not find function")) {
-        const helperExists = await this._helperFileExists();
-        return { kind: "helper_not_deployed", helperExists };
+        const exists = await helperFileExists();
+        return { kind: "helper_not_deployed", helperExists: exists };
       }
 
       if (
@@ -182,7 +183,7 @@ export class ConvexDataClient {
       throw new Error("No deployment connected");
     }
 
-    const convexDir = await this._findConvexProjectDir();
+    const convexDir = await findConvexProjectDir();
     if (!convexDir) {
       throw new Error("Could not find convex project directory");
     }
@@ -228,7 +229,7 @@ export class ConvexDataClient {
   }
 
   private async _startConvexDev(): Promise<void> {
-    const convexDir = await this._findConvexProjectDir();
+    const convexDir = await findConvexProjectDir();
     if (!convexDir) {return;}
 
     const terminal = vscode.window.createTerminal({
@@ -237,42 +238,5 @@ export class ConvexDataClient {
     });
     terminal.show();
     terminal.sendText("npx convex dev");
-  }
-
-  private async _helperFileExists(): Promise<boolean> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders?.length) {return false;}
-
-    const pattern = new vscode.RelativePattern(
-      workspaceFolders[0],
-      "**/convex/_exconvex.ts"
-    );
-    const files = await vscode.workspace.findFiles(
-      pattern,
-      "**/node_modules/**",
-      1
-    );
-    return files.length > 0;
-  }
-
-  private async _findConvexProjectDir(): Promise<string | null> {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders?.length) {return null;}
-
-    const pattern = new vscode.RelativePattern(
-      workspaceFolders[0],
-      "**/convex/_generated/server.{js,ts,d.ts}"
-    );
-    const files = await vscode.workspace.findFiles(
-      pattern,
-      "**/node_modules/**",
-      5
-    );
-
-    if (files.length === 0) {return null;}
-
-    files.sort((a, b) => a.fsPath.length - b.fsPath.length);
-    const convexDir = vscode.Uri.joinPath(files[0], "..", "..", "..");
-    return convexDir.fsPath;
   }
 }

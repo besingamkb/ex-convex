@@ -5,6 +5,7 @@ import type {
   RelationEdge,
   IndexDefinition,
 } from "../shared/types";
+import { findSchemaFile as findSchemaFileShared } from "../convexProject";
 
 /**
  * Parse convex/schema.ts to extract table definitions, field types,
@@ -21,7 +22,7 @@ export async function parseConvexSchema(): Promise<{
   indexes: IndexDefinition[];
   relations: RelationEdge[];
 }> {
-  const schemaFile = await findSchemaFile();
+  const schemaFile = await findSchemaFileShared();
   if (!schemaFile) {
     console.log("[ExConvex] No convex/schema.ts found in workspace");
     return { tables: [], indexes: [], relations: [] };
@@ -350,37 +351,6 @@ function extractIndexes(
   }
 
   return indexes;
-}
-
-/**
- * Find convex/schema.ts in the workspace, supporting monorepo structures.
- * Uses glob pattern to find it at any nesting depth.
- */
-async function findSchemaFile(): Promise<vscode.Uri | null> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders?.length) {
-    return null;
-  }
-
-  // Use glob to find schema.ts at any depth
-  const pattern = new vscode.RelativePattern(
-    workspaceFolders[0],
-    "**/convex/schema.{ts,js}"
-  );
-
-  const files = await vscode.workspace.findFiles(
-    pattern,
-    "**/node_modules/**",
-    5
-  );
-
-  if (files.length === 0) {
-    return null;
-  }
-
-  // Prefer the shortest path (closest to workspace root)
-  files.sort((a, b) => a.fsPath.length - b.fsPath.length);
-  return files[0];
 }
 
 async function readFileContent(uri: vscode.Uri): Promise<string | null> {

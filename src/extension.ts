@@ -390,9 +390,18 @@ export async function activate(
     vscode.commands.registerCommand(
       "exconvex.browseTable",
       async (tableName?: string, docCount?: number) => {
-        if (!connectionManager.isConnected) {
-          vscode.window.showWarningMessage("Connect to a deployment first.");
-          return;
+        // Pre-flight: check if data browsing is possible
+        const readinessError = await dataClient.checkReadiness();
+        if (readinessError) {
+          const shouldRetry = await dataClient.fix(readinessError);
+          if (!shouldRetry) {return;}
+
+          // Re-check after fix
+          const stillBroken = await dataClient.checkReadiness();
+          if (stillBroken) {
+            await dataClient.fix(stillBroken);
+            return;
+          }
         }
 
         // If no table name passed, prompt user to pick one

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import type { DeploymentTarget, DeploymentEnv } from "../shared/types";
+import { findConvexEnvFiles } from "../convexProject";
 
 const execFileAsync = promisify(execFile);
 
@@ -12,11 +13,9 @@ const execFileAsync = promisify(execFile);
 export async function detectDeployments(): Promise<DeploymentTarget[]> {
   const targets: DeploymentTarget[] = [];
 
-  // Try reading .env.local for CONVEX_URL
-  const envTarget = await detectFromEnvFile();
-  if (envTarget) {
-    targets.push(envTarget);
-  }
+  // Try reading .env.local for CONVEX_URL (searches ALL workspace folders)
+  const envTargets = await detectFromEnvFile();
+  targets.push(...envTargets);
 
   // Try convex CLI to list dev deployments
   const cliTargets = await detectFromCli();
@@ -34,50 +33,18 @@ export async function detectDeployments(): Promise<DeploymentTarget[]> {
   });
 }
 
-async function detectFromEnvFile(): Promise<DeploymentTarget | null> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders?.length) {
-    return null;
-  }
-
-  // Search for .env.local at any depth (monorepo support)
-  const pattern = new vscode.RelativePattern(
-    workspaceFolders[0],
-    "**/.env.local"
-  );
-  const envFiles = await vscode.workspace.findFiles(
-    pattern,
-    "**/node_modules/**",
-    10
-  );
-
-  for (const envUri of envFiles) {
-    try {
-      const content = await vscode.workspace.fs.readFile(envUri);
-      const text = Buffer.from(content).toString("utf-8");
-
-      const match = text.match(
-        /CONVEX_URL\s*=\s*["']?(https?:\/\/[^\s"']+)["']?/
-      );
-      if (match) {
-        const url = match[1];
-        const env: DeploymentEnv = url.includes("localhost") ? "local" : "dev";
-        // Derive project name from the directory containing .env.local
-        const dirPath = envUri.fsPath.replace(/[/\\]\.env\.local$/, "");
-        const projectName = dirPath.split(/[/\\]/).pop() ?? "unknown";
-        return {
-          id: `env-${env}-${projectName}`,
-          env,
-          url,
-          projectName,
-          connectedAt: 0,
-        };
-      }
-    } catch {
-      // File read failed
-    }
-  }
-  return null;
+async function detectFromEnvFile(): Promise<DeploymentTarget[]> {
+  const envResults = await findConvexEnvFiles();
+  return envResults.map(({ url, projectName }) => {
+    const env: DeploymentEnv = url.includes("localhost") ? "local" : "dev";
+    return {
+      id: `env-${env}-${projectName}`,
+      env,
+      url,
+      projectName,
+      connectedAt: 0,
+    };
+  });
 }
 
 async function detectFromCli(): Promise<DeploymentTarget[]> {

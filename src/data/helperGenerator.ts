@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { findConvexDir as findConvexDirShared } from "../convexProject";
 
 const HELPER_FILE_NAME = "_exconvex.ts";
 
@@ -51,7 +52,7 @@ export const _tableCounts = query({
  * Returns the convex directory URI or null.
  */
 export async function ensureHelperFile(): Promise<vscode.Uri | null> {
-  const convexDir = await findConvexDir();
+  const convexDir = await findConvexDirShared();
   if (!convexDir) {
     vscode.window.showWarningMessage(
       "Could not find a convex/ directory in this workspace."
@@ -100,7 +101,7 @@ async function writeHelper(uri: vscode.Uri): Promise<void> {
  * Remove the helper file from the convex directory.
  */
 export async function removeHelperFile(): Promise<void> {
-  const convexDir = await findConvexDir();
+  const convexDir = await findConvexDirShared();
   if (!convexDir) {return;}
 
   const helperUri = vscode.Uri.joinPath(convexDir, HELPER_FILE_NAME);
@@ -111,23 +112,3 @@ export async function removeHelperFile(): Promise<void> {
   }
 }
 
-async function findConvexDir(): Promise<vscode.Uri | null> {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders?.length) {return null;}
-
-  const pattern = new vscode.RelativePattern(
-    workspaceFolders[0],
-    "**/convex/_generated/server.{js,ts,d.ts}"
-  );
-  const files = await vscode.workspace.findFiles(
-    pattern,
-    "**/node_modules/**",
-    5
-  );
-
-  if (files.length === 0) {return null;}
-
-  // The convex dir is two levels up from _generated/server.ts
-  files.sort((a, b) => a.fsPath.length - b.fsPath.length);
-  return vscode.Uri.joinPath(files[0], "..", "..");
-}

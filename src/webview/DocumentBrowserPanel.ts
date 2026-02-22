@@ -73,6 +73,38 @@ export class DocumentBrowserPanel extends WebviewPanelManager {
     this._currentTable = table;
     this.postMessage({
       type: "loading",
+      payload: { message: `Checking Convex connection...` },
+    });
+
+    // Readiness check — detect and fix issues before querying
+    const readinessError = await this._dataClient.checkReadiness();
+    if (readinessError) {
+      const shouldRetry = await this._dataClient.fix(readinessError);
+      if (shouldRetry) {
+        // Re-check after fix attempt
+        const stillBroken = await this._dataClient.checkReadiness();
+        if (stillBroken) {
+          this.postMessage({
+            type: "error",
+            payload: {
+              message: this._readinessErrorMessage(stillBroken),
+            },
+          });
+          return;
+        }
+      } else {
+        this.postMessage({
+          type: "error",
+          payload: {
+            message: this._readinessErrorMessage(readinessError),
+          },
+        });
+        return;
+      }
+    }
+
+    this.postMessage({
+      type: "loading",
       payload: { message: `Loading ${table}...` },
     });
 
@@ -100,9 +132,24 @@ export class DocumentBrowserPanel extends WebviewPanelManager {
       this.postMessage({
         type: "error",
         payload: {
-          message: `Failed to load "${table}": ${message}. Make sure "npx convex dev" is running and the _exconvex.ts helper is deployed.`,
+          message: `Failed to load "${table}": ${message}`,
         },
       });
+    }
+  }
+
+  private _readinessErrorMessage(error: import("../data/convexClient").DataClientError): string {
+    switch (error.kind) {
+      case "no_deployment":
+        return "No Convex deployment connected. Use the Connect command first.";
+      case "no_convex_project":
+        return "No Convex project found in this workspace. Open a folder that contains a convex/ directory.";
+      case "helper_not_deployed":
+        return "The ExConvex data browser helper is not deployed. Run 'npx convex dev' to deploy it.";
+      case "convex_not_running":
+        return "Cannot reach the Convex deployment. Make sure 'npx convex dev' is running.";
+      case "query_failed":
+        return `Query failed: ${error.message}`;
     }
   }
 
