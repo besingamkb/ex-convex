@@ -135,6 +135,11 @@
           "command": "exconvex.refreshSchema",
           "when": "view == exconvex.tablesView",
           "group": "navigation"
+        },
+        {
+          "command": "exconvex.openSchemaGraph",
+          "when": "view == exconvex.tablesView",
+          "group": "navigation"
         }
       ]
     },
