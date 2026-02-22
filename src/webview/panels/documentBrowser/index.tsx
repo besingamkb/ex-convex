@@ -13,6 +13,7 @@ interface TableData {
   docs: Record<string, unknown>[];
   totalCount: number;
   fieldOrder?: string[];
+  schema?: Record<string, { optional: boolean, type: string }>;
 }
 
 function DocumentBrowserApp() {
@@ -57,6 +58,40 @@ function DocumentBrowserApp() {
       }
     });
   }, []);
+
+  const [isEditingPanel, setIsEditingPanel] = useState(false);
+  const [editFormData, setEditFormData] = useState<Record<string, unknown>>({});
+
+  useEffect(() => {
+    if (selectedDoc) {
+      setIsEditingPanel(false);
+      setEditFormData(selectedDoc as Record<string, unknown>);
+    }
+  }, [selectedDoc]);
+
+  const handleSaveForm = async () => {
+    if (!tableData) return;
+
+    if (!selectedDoc) return;
+    const docId = (selectedDoc as any)._id;
+
+    // In a real app we'd diff and send only changed fields, but for simplicity:
+    for (const key of Object.keys(editFormData)) {
+      if (key === "_id" || key === "_creationTime") continue;
+      if (editFormData[key] !== (selectedDoc as any)[key]) {
+        postMessage({
+          type: "updateDocument",
+          payload: {
+            table: tableData.table,
+            id: docId,
+            field: key,
+            value: editFormData[key],
+          },
+        });
+      }
+    }
+    setIsEditingPanel(false);
+  };
 
   const handleResizeStart = (e: React.MouseEvent, col: string) => {
     e.stopPropagation();
@@ -168,14 +203,16 @@ function DocumentBrowserApp() {
           />
         </div>
 
-        <button className="refresh-btn" onClick={handleRefresh}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <polyline points="1 20 1 14 7 14"></polyline>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-          Refresh
-        </button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button className="refresh-btn" onClick={handleRefresh}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="browser-body">
@@ -230,39 +267,126 @@ function DocumentBrowserApp() {
           )}
         </div>
 
-        {selectedDoc && (
-          <div className="detail-panel">
-            <div className="detail-header">
-              <div className="detail-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-                <span>Document Detail</span>
+        {(selectedDoc) && (() => {
+          // Check if form is valid (no required fields are empty "")
+          let isFormValid = true;
+          if (tableData?.schema) {
+            for (const col of columns) {
+              if (col === "_id" || col === "_creationTime") continue;
+
+              const fieldSchema = tableData.schema[col];
+              if (fieldSchema && !fieldSchema.optional) {
+                const val = editFormData[col];
+                if (val === "" || val === undefined || val === null) {
+                  isFormValid = false;
+                  break;
+                }
+              }
+            }
+          }
+
+          return (
+            <div className="detail-panel">
+              <div className="detail-header">
+                <div className="detail-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  <span>{isEditingPanel ? "Edit Document" : "Document Detail"}</span>
+                </div>
+                <div className="detail-actions">
+                  {isEditingPanel ? (
+                    <>
+                      <button onClick={() => { setIsEditingPanel(false); setEditFormData(selectedDoc as any); }}>Cancel</button>
+                      <button
+                        className="primary"
+                        onClick={handleSaveForm}
+                      >
+                        Save
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="primary" onClick={() => setIsEditingPanel(true)}>Edit</button>
+                      <button
+                        onClick={() => {
+                          postMessage({
+                            type: "export",
+                            format: "json",
+                          });
+                        }}
+                      >
+                        Copy JSON
+                      </button>
+                      <button onClick={() => setSelectedDoc(null)}>Close</button>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="detail-actions">
-                <button
-                  className="primary"
-                  onClick={() => {
-                    postMessage({
-                      type: "export",
-                      format: "json",
-                    });
-                  }}
-                >
-                  Copy JSON
-                </button>
-                <button onClick={() => setSelectedDoc(null)}>Close</button>
-              </div>
+
+              {(isEditingPanel) ? (
+                <div className="detail-form">
+                  {columns.map(key => {
+                    const val = editFormData[key];
+                    const isReadOnly = (key === "_id" || key === "_creationTime");
+
+                    return (
+                      <div key={key} className="form-group">
+                        <label>
+                          {key}
+                          {tableData?.schema?.[key] && !tableData.schema[key].optional && (
+                            <span style={{ color: "var(--vscode-errorForeground)", marginLeft: "4px" }}>*</span>
+                          )}
+                        </label>
+                        {isReadOnly ? (
+                          <div className="read-only-val">{String(val)}</div>
+                        ) : (
+                          <input
+                            type={typeof val === "number" ? "number" : typeof val === "boolean" ? "checkbox" : "text"}
+                            className="form-input"
+                            checked={typeof val === "boolean" ? (val as boolean) : undefined}
+                            value={typeof val === "boolean" ? undefined : typeof val === "string" || typeof val === "number" ? val : (val !== null && val !== undefined ? JSON.stringify(val) : "")}
+                            onChange={(e) => {
+                              let newVal: unknown = e.target.value;
+
+                              // If we know this field should be a number (either current value is a number or it's a number input)
+                              if (typeof val === "number" || e.target.type === "number") {
+                                newVal = e.target.value === "" ? 0 : Number(e.target.value);
+                              } else if (typeof val === "boolean" || e.target.type === "checkbox") {
+                                newVal = e.target.checked;
+                              } else if (e.target.value === "true") {
+                                newVal = true;
+                              } else if (e.target.value === "false") {
+                                newVal = false;
+                              } else if (typeof val === "object" && val !== null) {
+                                try {
+                                  newVal = JSON.parse(e.target.value);
+                                } catch {
+                                  // If it doesn't parse, store the string as they type so we don't break the input completely
+                                  newVal = e.target.value;
+                                }
+                              }
+
+                              setEditFormData(prev => ({ ...prev, [key]: newVal }));
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <pre className="detail-json">
+                  {JSON.stringify(selectedDoc, null, 2)}
+                </pre>
+              )}
             </div>
-            <pre className="detail-json">
-              {JSON.stringify(selectedDoc, null, 2)}
-            </pre>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

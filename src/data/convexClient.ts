@@ -14,7 +14,7 @@ export type DataClientError =
 export class ConvexDataClient {
   constructor(
     private readonly connectionManager: ConnectionManager
-  ) {}
+  ) { }
 
   /**
    * Check readiness: deployment connected, convex project found, helper deployed.
@@ -29,6 +29,8 @@ export class ConvexDataClient {
     if (!convexDir) {
       return { kind: "no_convex_project" };
     }
+
+    await ensureHelperFile();
 
     // Quick test: try running the helper
     try {
@@ -91,7 +93,7 @@ export class ConvexDataClient {
         if (!error.helperExists) {
           // Create the helper file
           const result = await ensureHelperFile();
-          if (!result) {return false;}
+          if (!result) { return false; }
         }
 
         const action = await vscode.window.showWarningMessage(
@@ -165,6 +167,28 @@ export class ConvexDataClient {
   }
 
   /**
+   * Update a document field.
+   */
+  async updateDoc(
+    table: string,
+    id: string,
+    field: string,
+    value: unknown
+  ): Promise<void> {
+    await this._run("_exconvex:_updateDoc", { table, id, field, value });
+  }
+
+  /**
+   * Create a new document.
+   */
+  async createDoc(
+    table: string,
+    document: Record<string, unknown>
+  ): Promise<void> {
+    await this._run("_exconvex:_createDoc", { table, document });
+  }
+
+  /**
    * Get a single document by ID.
    */
   async getDoc(table: string, id: string): Promise<unknown> {
@@ -230,7 +254,7 @@ export class ConvexDataClient {
 
   private async _startConvexDev(): Promise<void> {
     const convexDir = await findConvexProjectDir();
-    if (!convexDir) {return;}
+    if (!convexDir) { return; }
 
     const terminal = vscode.window.createTerminal({
       name: "Convex Dev",

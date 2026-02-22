@@ -2,12 +2,14 @@ import * as vscode from "vscode";
 import { WebviewPanelManager } from "./WebviewPanelManager";
 import type { FromWebviewMessage } from "../shared/messages";
 import type { ConvexDataClient } from "../data/convexClient";
+import { getParsedSchema } from "../convexProject";
 
 interface TableData {
   table: string;
   docs: unknown[];
   totalCount: number;
   fieldOrder?: string[];
+  schema?: Record<string, { optional: boolean, type: string }>;
 }
 
 export class DocumentBrowserPanel extends WebviewPanelManager {
@@ -47,6 +49,42 @@ export class DocumentBrowserPanel extends WebviewPanelManager {
       case "export":
         // Copy current doc to clipboard handled by webview
         break;
+      case "updateDocument": {
+        const payload = message.payload as { table: string, id: string, field: string, value: unknown };
+        if (payload?.id && payload?.field) {
+          this._dataClient.updateDoc(payload.table, payload.id, payload.field, payload.value)
+            .then(() => {
+              if (this._currentTable) {
+                this._loadTable(this._currentTable);
+              }
+            })
+            .catch((err) => {
+              this.postMessage({
+                type: "error",
+                payload: { message: `Update failed: ${err.message || String(err)}` }
+              });
+            });
+        }
+        break;
+      }
+      case "createDocument": {
+        const payload = message.payload as { table: string, document: Record<string, unknown> };
+        if (payload?.table && payload?.document) {
+          this._dataClient.createDoc(payload.table, payload.document)
+            .then(() => {
+              if (this._currentTable) {
+                this._loadTable(this._currentTable);
+              }
+            })
+            .catch((err) => {
+              this.postMessage({
+                type: "error",
+                payload: { message: `Create failed: ${err.message || String(err)}` }
+              });
+            });
+        }
+        break;
+      }
     }
   }
 
@@ -121,11 +159,22 @@ export class DocumentBrowserPanel extends WebviewPanelManager {
 
       const totalCount = knownCount ?? docs.length;
 
+      let schemaForTable = undefined;
+      try {
+        const fullSchema = await getParsedSchema();
+        if (fullSchema && fullSchema[table]) {
+          schemaForTable = fullSchema[table];
+        }
+      } catch (err) {
+        console.warn("Failed to retrieve schema for table", table, err);
+      }
+
       const data: TableData = {
         table,
         docs: docs as Record<string, unknown>[],
         totalCount,
         fieldOrder: this._fieldOrder,
+        schema: schemaForTable,
       };
 
       this.panel?.webview.postMessage({

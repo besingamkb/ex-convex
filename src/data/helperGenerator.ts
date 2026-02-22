@@ -47,6 +47,36 @@ export const _tableCounts = query({
     return counts;
   },
 });
+
+import { mutation } from "./_generated/server";
+
+export const _updateDoc = mutation({
+  args: { 
+    table: v.string(),
+    id: v.string(), 
+    field: v.string(), 
+    value: v.any() 
+  },
+  handler: async (ctx, { table, id, field, value }) => {
+    const normalizedId = (ctx.db as any).normalizeId(table, id);
+    if (!normalizedId) {
+      throw new Error(\`Invalid ID "\${id}" for table "\${table}"\`);
+    }
+    await (ctx.db as any).patch(normalizedId, { [field]: value });
+    return { success: true };
+  },
+});
+
+export const _createDoc = mutation({
+  args: {
+    table: v.string(),
+    document: v.any()
+  },
+  handler: async (ctx, { table, document }) => {
+    const id = await (ctx.db as any).insert(table, document);
+    return { id };
+  }
+});
 `;
 
 /**
@@ -70,7 +100,7 @@ export async function ensureHelperFile(): Promise<vscode.Uri | null> {
     const existing = Buffer.from(
       await vscode.workspace.fs.readFile(helperUri)
     ).toString("utf-8");
-    if (!existing.includes("_listDocs") || !existing.includes("_tableCounts")) {
+    if (!existing.includes("_listDocs") || !existing.includes("_tableCounts") || !existing.includes("normalizeId") || !existing.includes("_createDoc")) {
       await writeHelper(helperUri);
     }
   } catch {

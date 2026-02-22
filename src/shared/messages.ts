@@ -24,4 +24,6 @@ export type FromWebviewMessage =
   | { type: "refresh" }
   | { type: "export"; format: "json" | "svg" | "png" }
   | { type: "setRelationOverride"; payload: RelationOverrideDto }
-  | { type: "ready" };
+  | { type: "ready" }
+  | { type: "updateDocument"; payload: { table: string; id: string; field: string; value: unknown } }
+  | { type: "createDocument"; payload: { table: string; document: Record<string, unknown> } };
