@@ -34,7 +34,7 @@ export class ConvexDataClient {
 
     // Quick test: try running the helper
     try {
-      await this._run("_exconvex:_countDocs", { table: "_does_not_exist" });
+      await this._run(".exconvex/_exconvex:_countDocs", { table: "_does_not_exist" });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
 
@@ -141,7 +141,7 @@ export class ConvexDataClient {
     table: string,
     limit: number = 50
   ): Promise<unknown[]> {
-    const result = await this._run("_exconvex:_listDocs", {
+    const result = await this._run(".exconvex/_exconvex:_listDocs", {
       table,
       limit,
     });
@@ -158,7 +158,7 @@ export class ConvexDataClient {
   async getTableCounts(
     tables: string[]
   ): Promise<Record<string, number>> {
-    const result = await this._run("_exconvex:_tableCounts", { tables });
+    const result = await this._run(".exconvex/_exconvex:_tableCounts", { tables });
 
     if (result && typeof result === "object") {
       return result as Record<string, number>;
@@ -175,7 +175,7 @@ export class ConvexDataClient {
     field: string,
     value: unknown
   ): Promise<void> {
-    await this._run("_exconvex:_updateDoc", { table, id, field, value });
+    await this._run(".exconvex/_exconvex:_updateDoc", { table, id, field, value });
   }
 
   /**
@@ -185,14 +185,14 @@ export class ConvexDataClient {
     table: string,
     document: Record<string, unknown>
   ): Promise<void> {
-    await this._run("_exconvex:_createDoc", { table, document });
+    await this._run(".exconvex/_exconvex:_createDoc", { table, document });
   }
 
   /**
    * Get a single document by ID.
    */
   async getDoc(table: string, id: string): Promise<unknown> {
-    return await this._run("_exconvex:_getDoc", { table, id });
+    return await this._run(".exconvex/_exconvex:_getDoc", { table, id });
   }
 
   /**

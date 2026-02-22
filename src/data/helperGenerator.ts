@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { findConvexDir as findConvexDirShared } from "../convexProject";
 
+const HELPER_DIR_NAME = ".exconvex";
 const HELPER_FILE_NAME = "_exconvex.ts";
 
 const HELPER_CONTENT = `/* eslint-disable */
@@ -92,7 +93,8 @@ export async function ensureHelperFile(): Promise<vscode.Uri | null> {
     return null;
   }
 
-  const helperUri = vscode.Uri.joinPath(convexDir, HELPER_FILE_NAME);
+  const helperDirUri = vscode.Uri.joinPath(convexDir, HELPER_DIR_NAME);
+  const helperUri = vscode.Uri.joinPath(helperDirUri, HELPER_FILE_NAME);
 
   try {
     await vscode.workspace.fs.stat(helperUri);
@@ -101,46 +103,57 @@ export async function ensureHelperFile(): Promise<vscode.Uri | null> {
       await vscode.workspace.fs.readFile(helperUri)
     ).toString("utf-8");
     if (!existing.includes("_listDocs") || !existing.includes("_tableCounts") || !existing.includes("normalizeId") || !existing.includes("_createDoc")) {
-      await writeHelper(helperUri);
+      await writeHelper(helperDirUri, helperUri);
     }
   } catch {
     // File doesn't exist — create it
     const action = await vscode.window.showInformationMessage(
-      "ExConvex needs to create a helper file in your convex/ directory to browse live data. This file is safe to delete later.",
+      "ExConvex needs to create a helper file in your convex/ directory to browse live data. This will be placed in a hidden, gitignored folder (.exconvex).",
       "Create",
       "Cancel"
     );
     if (action !== "Create") {
       return null;
     }
-    await writeHelper(helperUri);
+    await writeHelper(helperDirUri, helperUri);
     vscode.window.showInformationMessage(
-      `Created ${HELPER_FILE_NAME} in your convex directory. Run "npx convex dev" to deploy it.`
+      `Created ${HELPER_DIR_NAME}/${HELPER_FILE_NAME} in your convex directory. Run "npx convex dev" to deploy it.`
     );
   }
 
   return convexDir;
 }
 
-async function writeHelper(uri: vscode.Uri): Promise<void> {
+async function writeHelper(dirUri: vscode.Uri, fileUri: vscode.Uri): Promise<void> {
+  // Ensure the .exconvex directory exists
+  await vscode.workspace.fs.createDirectory(dirUri);
+
+  // Write the local .gitignore to exclude this folder from the user's repo
+  const gitignoreUri = vscode.Uri.joinPath(dirUri, ".gitignore");
   await vscode.workspace.fs.writeFile(
-    uri,
+    gitignoreUri,
+    Buffer.from("*\n", "utf-8")
+  );
+
+  // Write the actual helper file
+  await vscode.workspace.fs.writeFile(
+    fileUri,
     Buffer.from(HELPER_CONTENT, "utf-8")
   );
 }
 
 /**
- * Remove the helper file from the convex directory.
+ * Remove the helper directory from the convex directory.
  */
 export async function removeHelperFile(): Promise<void> {
   const convexDir = await findConvexDirShared();
   if (!convexDir) { return; }
 
-  const helperUri = vscode.Uri.joinPath(convexDir, HELPER_FILE_NAME);
+  const helperDirUri = vscode.Uri.joinPath(convexDir, HELPER_DIR_NAME);
   try {
-    await vscode.workspace.fs.delete(helperUri);
+    await vscode.workspace.fs.delete(helperDirUri, { recursive: true, useTrash: false });
   } catch {
-    // File doesn't exist
+    // Directory doesn't exist
   }
 }
 

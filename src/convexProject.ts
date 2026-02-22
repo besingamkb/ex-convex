@@ -71,7 +71,7 @@ export async function findSchemaFile(): Promise<vscode.Uri | null> {
  */
 export async function helperFileExists(): Promise<boolean> {
   const files = await vscode.workspace.findFiles(
-    "**/convex/_exconvex.ts",
+    "**/convex/.exconvex/_exconvex.ts",
     "**/node_modules/**",
     1
   );
