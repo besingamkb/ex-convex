@@ -12,6 +12,7 @@ interface TableData {
   table: string;
   docs: Record<string, unknown>[];
   totalCount: number;
+  fieldOrder?: string[];
 }
 
 function DocumentBrowserApp() {
@@ -63,7 +64,7 @@ function DocumentBrowserApp() {
   const totalPages = Math.ceil(filteredDocs.length / pageSize);
 
   const columns = tableData?.docs.length
-    ? getColumns(tableData.docs)
+    ? getColumns(tableData.docs, tableData.fieldOrder)
     : [];
 
   const handleRefresh = useCallback(() => {
@@ -170,29 +171,43 @@ function DocumentBrowserApp() {
   );
 }
 
-function getColumns(docs: Record<string, unknown>[]): string[] {
-  const colSet = new Set<string>();
-  // Always put _id and _creationTime first
-  colSet.add("_id");
-  colSet.add("_creationTime");
+function getColumns(docs: Record<string, unknown>[], fieldOrder?: string[]): string[] {
+  // Use the schema field order when available.
+  // Layout: _id, then schema fields in definition order, then _creationTime last.
+  const seen = new Set<string>();
+  const ordered: string[] = [];
 
-  for (const doc of docs.slice(0, 20)) {
-    for (const key of Object.keys(doc)) {
-      colSet.add(key);
+  // _id always first
+  seen.add("_id");
+  ordered.push("_id");
+
+  // Reserve _creationTime — we'll push it to the end
+  seen.add("_creationTime");
+
+  // Add fields in schema definition order
+  if (fieldOrder) {
+    for (const field of fieldOrder) {
+      if (!seen.has(field)) {
+        seen.add(field);
+        ordered.push(field);
+      }
     }
   }
 
-  const cols = Array.from(colSet);
-  // Move _id and _creationTime to front
-  cols.sort((a, b) => {
-    if (a === "_id") {return -1;}
-    if (b === "_id") {return 1;}
-    if (a === "_creationTime") {return -1;}
-    if (b === "_creationTime") {return 1;}
-    return a.localeCompare(b);
-  });
+  // Append any extra fields found in docs that aren't in the schema
+  for (const doc of docs.slice(0, 20)) {
+    for (const key of Object.keys(doc)) {
+      if (!seen.has(key)) {
+        seen.add(key);
+        ordered.push(key);
+      }
+    }
+  }
 
-  return cols;
+  // _creationTime always last
+  ordered.push("_creationTime");
+
+  return ordered;
 }
 
 function formatCell(value: unknown): string {

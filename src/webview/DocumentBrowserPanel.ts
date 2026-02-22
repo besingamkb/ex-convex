@@ -7,6 +7,7 @@ interface TableData {
   table: string;
   docs: unknown[];
   totalCount: number;
+  fieldOrder?: string[];
 }
 
 export class DocumentBrowserPanel extends WebviewPanelManager {
@@ -53,8 +54,11 @@ export class DocumentBrowserPanel extends WebviewPanelManager {
     this._currentTable = undefined;
   }
 
-  async openTable(table: string, totalCount?: number): Promise<void> {
+  private _fieldOrder: string[] | undefined;
+
+  async openTable(table: string, totalCount?: number, fieldOrder?: string[]): Promise<void> {
     this._currentTable = table;
+    this._fieldOrder = fieldOrder;
 
     if (!this.panel) {
       this.show(vscode.ViewColumn.One);
@@ -121,6 +125,7 @@ export class DocumentBrowserPanel extends WebviewPanelManager {
         table,
         docs: docs as Record<string, unknown>[],
         totalCount,
+        fieldOrder: this._fieldOrder,
       };
 
       this.panel?.webview.postMessage({

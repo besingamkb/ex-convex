@@ -428,7 +428,11 @@ export async function activate(
           context.subscriptions.push(documentBrowserPanel);
         }
 
-        await documentBrowserPanel.openTable(tableName, docCount);
+        // Get field order from the parsed schema
+        const tableSchema = cachedTables.find((t) => t.table === tableName);
+        const fieldOrder = tableSchema?.fields.map((f) => f.path);
+
+        await documentBrowserPanel.openTable(tableName, docCount, fieldOrder);
       }
     )
   );
